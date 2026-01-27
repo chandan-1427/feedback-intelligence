@@ -1,5 +1,5 @@
 import { sign } from "hono/jwt";
-import { env } from "@/config/env.js";
+import { env } from "../config/env.js";
 
 export async function signToken(payload: {
   userId: string;

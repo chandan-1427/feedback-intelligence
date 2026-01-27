@@ -1,9 +1,9 @@
 import { Hono } from "hono";
 import bcrypt from "bcrypt";
 import { setCookie, deleteCookie } from "hono/cookie";
-import { pool } from "@/db/client.js";
-import { signToken } from "@/utils/jwt.js";
-import { env } from "@/config/env.js";
+import { pool } from "../db/client.js";
+import { signToken } from "../utils/jwt.js";
+import { env } from "../config/env.js";
 
 export const authRoute = new Hono();
 

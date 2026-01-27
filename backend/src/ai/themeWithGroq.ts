@@ -1,5 +1,5 @@
 import { groq } from "./groqClient.js";
-import { env } from "@/config/env.js";
+import { env } from "../config/env.js";
 
 export type FeedbackTheme =
   | "login_issue"

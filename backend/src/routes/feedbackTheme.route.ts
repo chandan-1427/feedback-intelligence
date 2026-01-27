@@ -1,6 +1,6 @@
 import { Hono } from "hono";
-import { pool } from "@/db/client.js";
-import { themeFeedbackWithGroq } from "@/ai/themeWithGroq.js";
+import { pool } from "../db/client.js";
+import { themeFeedbackWithGroq } from "../ai/themeWithGroq.js";
 import type { JwtVariables } from "hono/jwt";
 
 type Variables = JwtVariables & {

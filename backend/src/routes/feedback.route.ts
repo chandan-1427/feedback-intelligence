@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { pool } from "@/db/client.js";
+import { pool } from "../db/client.js";
 import type { JwtVariables } from "hono/jwt";
 
 type Variables = JwtVariables & {

@@ -1,6 +1,6 @@
 import { Hono } from "hono";
-import { pool } from "@/db/client.js";
-import { generateClusterSolutionWithGroq } from "@/ai/solutionWithGroq.js";
+import { pool } from "../db/client.js";
+import { generateClusterSolutionWithGroq } from "../ai/solutionWithGroq.js";
 import type { JwtVariables } from "hono/jwt";
 
 type Variables = JwtVariables & {
