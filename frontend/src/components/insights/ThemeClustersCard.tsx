@@ -1,6 +1,16 @@
 import React, { useMemo, useState } from "react";
-import { Layers, RefreshCw, Search, AlertCircle } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+
+import {
+  Layers,
+  RefreshCw,
+  Search,
+  AlertCircle,
+  Wand2,
+  Loader2,
+} from "lucide-react";
 import type { ThemeCluster } from "../../lib/types/clusters";
+import { useGenerateSolution } from "../../hooks/solutions/useGenerateSolution";
 
 type Props = {
   clusters: ThemeCluster[];
@@ -22,6 +32,10 @@ const ThemeClustersCard: React.FC<Props> = ({
   selectedTheme = null,
 }) => {
   const [query, setQuery] = useState("");
+  const [limit] = useState(25);
+  const [generatingTheme, setGeneratingTheme] = useState<string | null>(null);
+
+  const { generate, isLoading, error: genError } = useGenerateSolution();
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -32,6 +46,20 @@ const ThemeClustersCard: React.FC<Props> = ({
 
   const totalClusters = clusters.length;
 
+  const navigate = useNavigate();
+
+  const handleGenerate = async (theme: string) => {
+    setGeneratingTheme(theme);
+    const ok = await generate(theme, limit);
+    if (ok) {
+      onSelectTheme(theme);
+      navigate("/solutions", {
+        state: {theme}
+      });
+    }
+    setGeneratingTheme(null);
+  };
+
   return (
     <div className="rounded-2xl bg-white/[0.02] border border-white/10 backdrop-blur-md p-5 shadow-[0_14px_35px_rgba(0,0,0,0.45)] min-w-0">
       {/* Header */}
@@ -40,8 +68,8 @@ const ThemeClustersCard: React.FC<Props> = ({
           <h3 className="text-sm font-semibold font-poppins text-white/90">
             Theme clusters
           </h3>
-          <p className="text-xs text-white/50 mt-1">
-            Pick a theme to view solutions.
+          <p className="text-xs text-white/50 mt-1 tracking-wide">
+            Pick a theme or generate a solution. <br />Your solutions are saved on the solutions page.
           </p>
         </div>
 
@@ -78,7 +106,7 @@ const ThemeClustersCard: React.FC<Props> = ({
         />
       </div>
 
-      {/* States */}
+      {/* Error */}
       {error && (
         <div className="mt-3 text-xs text-red-300 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2 flex items-start gap-2">
           <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
@@ -86,6 +114,13 @@ const ThemeClustersCard: React.FC<Props> = ({
         </div>
       )}
 
+      {genError && (
+        <div className="mt-3 text-xs text-red-300 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2">
+          {genError}
+        </div>
+      )}
+
+      {/* Loading skeleton */}
       {loading && (
         <div className="mt-4 space-y-2 animate-pulse">
           {Array.from({ length: 5 }).map((_, i) => (
@@ -123,44 +158,72 @@ const ThemeClustersCard: React.FC<Props> = ({
           ) : (
             filtered.map((c) => {
               const active = selectedTheme === c.theme;
+              const isGenerating = generatingTheme === c.theme;
 
               return (
-                <button
+                <div
                   key={c.theme}
-                  onClick={() => onSelectTheme(c.theme)}
                   className={`
-                    w-full text-left
+                    w-full
                     rounded-xl px-3 py-3
-                    border transition-all active:scale-[0.99]
+                    border transition-all
                     ${
                       active
                         ? "bg-[#5A0091]/15 border-[#5A0091]/30"
-                        : "bg-white/[0.01] border-white/[0.06] hover:bg-white/[0.03] hover:border-white/10"
+                        : "bg-white/[0.01] border-white/[0.06]"
                     }
                   `}
                 >
                   <div className="flex items-center justify-between gap-3 min-w-0">
-                    <div className="flex items-center gap-2 min-w-0">
+                    <button
+                      onClick={() => onSelectTheme(c.theme)}
+                      className="flex items-center gap-2 min-w-0 text-left"
+                    >
                       <Layers className="w-4 h-4 text-white/40 shrink-0" />
                       <span className="text-sm font-semibold text-white/85 truncate">
                         {c.theme}
                       </span>
-                    </div>
+                    </button>
 
-                    <span
-                      className="
-                        shrink-0
-                        text-[11px] font-semibold
-                        px-2.5 py-1 rounded-full
-                        bg-white/5 border border-white/10
-                        text-white/65
-                      "
-                      title="Feedback count"
-                    >
-                      {c.total}
-                    </span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span
+                        className="
+                          text-[11px] font-semibold
+                          px-2.5 py-1 rounded-full
+                          bg-white/5 border border-white/10
+                          text-white/65
+                        "
+                      >
+                        {c.total}
+                      </span>
+
+                      <button
+                        onClick={() => handleGenerate(c.theme)}
+                        disabled={isGenerating || isLoading}
+                        className="
+                          inline-flex items-center gap-1.5
+                          px-3 py-1.5 rounded-lg
+                          bg-[#5A0091] text-white text-xs font-semibold
+                          hover:bg-[#6d0da8]
+                          transition
+                          disabled:opacity-50 disabled:cursor-not-allowed
+                        "
+                      >
+                        {isGenerating ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            Generating
+                          </>
+                        ) : (
+                          <>
+                            <Wand2 className="w-3.5 h-3.5" />
+                            Generate
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
-                </button>
+                </div>
               );
             })
           )}

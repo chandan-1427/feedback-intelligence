@@ -7,16 +7,23 @@ type Variables = JwtVariables & {
     userId: string;
     email: string;
     username: string;
-    exp: number;
   };
 };
 
 export const clusterRoute = new Hono<{ Variables: Variables }>();
 
-/**
- * GET /api/clusters/themes
- * Returns theme clusters only for the logged-in user
- */
+/* -----------------------------
+   Helpers
+----------------------------- */
+const normalizeTheme = (theme: string) =>
+  theme.trim().toLowerCase().replace(/\s+/g, " ");
+
+const validateTheme = (theme: string) =>
+  theme.length >= 2 && theme.length <= 100;
+
+/* -----------------------------------------
+   GET /api/clusters/themes
+----------------------------------------- */
 clusterRoute.get("/themes", async (c) => {
   const { userId } = c.get("jwtPayload");
 
@@ -36,29 +43,25 @@ clusterRoute.get("/themes", async (c) => {
       [userId]
     );
 
-    return c.json({
-      clusters: result.rows,
-    });
+    return c.json({ clusters: result.rows });
   } catch (err) {
-    console.error("[clusters/themes] error:", err);
+    console.error("[clusters/themes]", err);
     return c.json({ message: "Failed to fetch clusters" }, 500);
   }
 });
 
-/**
- * GET /api/clusters/themes/:theme?limit=20
- * Returns feedbacks for one theme cluster (user scoped)
- */
+/* -----------------------------------------
+   GET /api/clusters/themes/:theme
+----------------------------------------- */
 clusterRoute.get("/themes/:theme", async (c) => {
   const { userId } = c.get("jwtPayload");
 
-  // ✅ sanitize + normalize theme
   const rawTheme = c.req.param("theme")?.trim();
-  if (!rawTheme || rawTheme.length > 100) {
+  if (!rawTheme || !validateTheme(rawTheme)) {
     return c.json({ message: "Invalid theme" }, 400);
   }
 
-  const theme = rawTheme; // keep original casing if you prefer
+  const theme = normalizeTheme(rawTheme);
 
   const limitQ = Number(c.req.query("limit") || 20);
   const limit =
@@ -67,20 +70,7 @@ clusterRoute.get("/themes/:theme", async (c) => {
       : 20;
 
   try {
-    // ✅ total count (for UI correctness)
-    const countRes = await pool.query(
-      `
-      SELECT COUNT(*)::int AS total
-      FROM feedbacks
-      WHERE user_id = $1
-        AND theme = $2
-        AND theme_status = 'done'
-      `,
-      [userId, theme]
-    );
-
-    // ✅ paged data
-    const dataRes = await pool.query(
+    const result = await pool.query(
       `
       SELECT
         id,
@@ -101,12 +91,12 @@ clusterRoute.get("/themes/:theme", async (c) => {
 
     return c.json({
       theme,
-      total: countRes.rows[0]?.total ?? 0,
+      total: result.rows.length,
       limit,
-      feedbacks: dataRes.rows,
+      feedbacks: result.rows,
     });
   } catch (err) {
-    console.error("[clusters/themes/:theme] error:", {
+    console.error("[clusters/themes/:theme]", {
       userId,
       theme,
       err,

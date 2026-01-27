@@ -158,6 +158,7 @@ const PendingFeedbackListCard: React.FC<Props> = ({ limit = 10 }) => {
             </button>
 
             {/* ✅ Bulk Theme Button (replaces Insights) */}
+            {/* Bulk Theme — Desktop */}
             <button
               type="button"
               onClick={runBulkTheme}
@@ -172,7 +173,6 @@ const PendingFeedbackListCard: React.FC<Props> = ({ limit = 10 }) => {
                 disabled:opacity-50 disabled:cursor-not-allowed
               "
               title={`Run bulk theme (max ${safeLimit})`}
-              aria-label="Run bulk theme"
             >
               {isBulkLoading ? (
                 <>
@@ -184,6 +184,29 @@ const PendingFeedbackListCard: React.FC<Props> = ({ limit = 10 }) => {
                   <Layers className="w-4 h-4" />
                   Bulk theme
                 </>
+              )}
+            </button>
+
+            {/* Bulk Theme — Mobile (icon only) */}
+            <button
+              type="button"
+              onClick={runBulkTheme}
+              disabled={disableActions}
+              className="
+                sm:hidden
+                p-2 rounded-xl
+                bg-white/5 border border-white/10
+                text-white/60 hover:text-white hover:bg-white/10
+                transition active:scale-95
+                disabled:opacity-40 disabled:cursor-not-allowed
+              "
+              title={`Run bulk theme (max ${safeLimit})`}
+              aria-label="Run bulk theme"
+            >
+              {isBulkLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Layers className="w-4 h-4" />
               )}
             </button>
           </div>

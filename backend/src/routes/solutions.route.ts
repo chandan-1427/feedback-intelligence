@@ -18,18 +18,14 @@ export const solutionsRoute = new Hono<{ Variables: Variables }>();
    Helpers
 ----------------------------- */
 const normalizeTheme = (theme: string) =>
-  theme.trim().toLowerCase().replace(/\s+/g, " ");
+  theme.trim().toLowerCase();
 
-const validateTheme = (theme: string) => {
-  if (!theme) return false;
-  if (theme.length < 2) return false;
-  if (theme.length > 100) return false;
-  return true;
-};
+const validateTheme = (theme: string) =>
+  theme.length >= 2 && theme.length <= 100;
 
-/**
- * POST /api/solutions/themes/:theme/generate?limit=25&force=false
- */
+/* --------------------------------------------------
+   POST /api/solutions/themes/:theme/generate
+-------------------------------------------------- */
 solutionsRoute.post("/themes/:theme/generate", async (c) => {
   const { userId } = c.get("jwtPayload");
 
@@ -42,16 +38,27 @@ solutionsRoute.post("/themes/:theme/generate", async (c) => {
   const force = c.req.query("force") === "true";
 
   const limitQ = Number(c.req.query("limit") || 25);
-  const limit =
-    Number.isFinite(limitQ) ? Math.min(Math.max(limitQ, 5), 50) : 25;
+  const limit = Number.isFinite(limitQ)
+    ? Math.min(Math.max(limitQ, 5), 50)
+    : 25;
 
   const client = await pool.connect();
 
   try {
     await client.query("BEGIN");
 
-    // 🔒 concurrency lock on solution row
-    const lockRes = await client.query(
+    // ✅ ensure row exists + lock it
+    await client.query(
+      `
+      INSERT INTO cluster_solutions (user_id, theme, status)
+      VALUES ($1, $2, 'processing')
+      ON CONFLICT (user_id, theme)
+      DO UPDATE SET status = 'processing', updated_at = NOW()
+      `,
+      [userId, theme]
+    );
+
+    const solutionRes = await client.query(
       `
       SELECT *
       FROM cluster_solutions
@@ -61,7 +68,7 @@ solutionsRoute.post("/themes/:theme/generate", async (c) => {
       [userId, theme]
     );
 
-    const existingSolution = lockRes.rows[0] || null;
+    const existingSolution = solutionRes.rows[0];
 
     // latest feedback timestamp
     const latestRes = await client.query(
@@ -83,37 +90,24 @@ solutionsRoute.post("/themes/:theme/generate", async (c) => {
     }
 
     const hasNewFeedback =
-      existingSolution?.last_feedback_at
+      existingSolution.last_feedback_at
         ? new Date(latestFeedbackAt).getTime() >
           new Date(existingSolution.last_feedback_at).getTime()
         : true;
 
-    // ✅ return cached
+    // ✅ cached response
     if (
       !force &&
-      existingSolution &&
       existingSolution.solution_summary &&
       !hasNewFeedback
     ) {
       await client.query("COMMIT");
       return c.json({
-        message: "Solution up-to-date",
         cached: true,
         theme,
         solution: existingSolution,
       });
     }
-
-    // mark processing
-    await client.query(
-      `
-      INSERT INTO cluster_solutions (user_id, theme, status)
-      VALUES ($1,$2,'processing')
-      ON CONFLICT (user_id, theme)
-      DO UPDATE SET status = 'processing', updated_at = NOW()
-      `,
-      [userId, theme]
-    );
 
     await client.query("COMMIT");
 
@@ -132,11 +126,7 @@ solutionsRoute.post("/themes/:theme/generate", async (c) => {
       [userId, theme, limit]
     );
 
-    type FeedbackRow = {
-      message: string;
-    };
-
-    const feedbackMessages = fbRes.rows.map((r: FeedbackRow) => r.message);
+    const feedbackMessages = fbRes.rows.map(r => r.message);
 
     if (feedbackMessages.length === 0) {
       throw new Error("No feedback messages found");
@@ -160,7 +150,7 @@ solutionsRoute.post("/themes/:theme/generate", async (c) => {
 
     const totalFeedbacks = countRes.rows[0]?.total ?? 0;
 
-    // persist solution
+    // ✅ persist result
     await pool.query(
       `
       UPDATE cluster_solutions
@@ -195,30 +185,22 @@ solutionsRoute.post("/themes/:theme/generate", async (c) => {
     );
 
     return c.json({
-      message: "Solution generated",
       cached: false,
       theme,
       totalFeedbacks,
       solution,
     });
   } catch (err: any) {
-    console.error("[solution-generate]", {
-      userId,
-      theme: rawTheme,
-      error: err?.message || err,
-    });
+    console.error("[solutions/generate]", err);
 
-    // mark failed
-    try {
-      await pool.query(
-        `
-        UPDATE cluster_solutions
-        SET status = 'failed', updated_at = NOW()
-        WHERE user_id = $1 AND theme = $2
-        `,
-        [userId, normalizeTheme(rawTheme)]
-      );
-    } catch {}
+    await pool.query(
+      `
+      UPDATE cluster_solutions
+      SET status = 'failed', updated_at = NOW()
+      WHERE user_id = $1 AND theme = $2
+      `,
+      [userId, normalizeTheme(rawTheme)]
+    );
 
     return c.json({ message: "Failed to generate solution" }, 500);
   } finally {
@@ -226,9 +208,9 @@ solutionsRoute.post("/themes/:theme/generate", async (c) => {
   }
 });
 
-/**
- * GET /api/solutions
- */
+/* --------------------------------------------------
+   GET /api/solutions
+-------------------------------------------------- */
 solutionsRoute.get("/", async (c) => {
   const { userId } = c.get("jwtPayload");
 
@@ -245,9 +227,9 @@ solutionsRoute.get("/", async (c) => {
   return c.json({ solutions: res.rows });
 });
 
-/**
- * GET /api/solutions/themes/:theme
- */
+/* --------------------------------------------------
+   GET /api/solutions/themes/:theme
+-------------------------------------------------- */
 solutionsRoute.get("/themes/:theme", async (c) => {
   const { userId } = c.get("jwtPayload");
 

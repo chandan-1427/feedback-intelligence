@@ -7,8 +7,9 @@ import {
   Tooltip,
   Legend,
 } from "recharts";
-import { PieChart as PieIcon, Info } from "lucide-react";
+import { PieChart as PieIcon } from "lucide-react";
 import type { ThemeCluster } from "../../lib/types/clusters";
+import ChartInfoTooltip from "./ChartInfoTooltip";
 
 type Props = {
   clusters: ThemeCluster[];
@@ -110,25 +111,12 @@ const ThemeAnalyticsChart: React.FC<Props> = ({ clusters, loading }) => {
         </div>
 
         {/* Info tooltip */}
-        <div className="relative group shrink-0">
-          <button
-            type="button"
-            className="p-2 rounded-xl bg-white/5 border border-white/10 text-white/40 hover:text-white hover:bg-white/10 transition"
-            aria-label="About this chart"
-            title="About this chart"
-          >
-            <Info className="w-4 h-4" />
-          </button>
-
-          <div className="pointer-events-none absolute right-0 mt-2 w-56 rounded-xl border border-white/10 bg-[#0D0E0E] px-3 py-2 text-[11px] text-white/60 opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition">
-            Shows how feedback is split across themes.
-          </div>
-        </div>
+        <ChartInfoTooltip />
       </div>
 
       {/* Chart */}
-      <div className="mt-4 flex-1 min-h-[240px] w-full min-w-0">
-        <ResponsiveContainer width="100%" height="100%">
+      <div className="mt-4 w-full min-w-0">
+        <ResponsiveContainer width="100%" aspect={1.1}>
           <PieChart>
             <Pie
               data={chartData}
@@ -178,9 +166,7 @@ const ThemeAnalyticsChart: React.FC<Props> = ({ clusters, loading }) => {
               verticalAlign="bottom"
               height={32}
               formatter={(value) => (
-                <span className="text-[11px] text-white/55">
-                  {value}
-                </span>
+                <span className="text-[11px] text-white/55">{value}</span>
               )}
             />
           </PieChart>

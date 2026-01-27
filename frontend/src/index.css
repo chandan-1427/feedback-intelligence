@@ -22,3 +22,8 @@
 body {
   background-color: #0D0E0E;
 }
+
+@keyframes shine {
+  0% { transform: translateX(-100%) skewX(-30deg); }
+  100% { transform: translateX(250%) skewX(-30deg); }
+}

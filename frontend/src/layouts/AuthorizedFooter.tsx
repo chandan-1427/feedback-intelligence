@@ -132,10 +132,10 @@ const AuthorizedFooter: React.FC = () => {
                     </li>
                     <li>
                       <Link
-                        to="/user-manual"
+                        to="/solutions"
                         className="text-sm text-white/55 hover:text-white transition"
                       >
-                        User Manual
+                        Solutions
                       </Link>
                     </li>
                   </ul>

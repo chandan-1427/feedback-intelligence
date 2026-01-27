@@ -8,7 +8,6 @@ import {
   Loader2,
   Menu,
   X,
-  UserCog,
 } from "lucide-react";
 import { useLogout } from "../hooks/auth/useLogout";
 
@@ -73,12 +72,6 @@ const AuthorizedNavbar: React.FC = () => {
             {/* Desktop nav */}
             <div className="hidden md:flex items-center gap-1.5">
               <DesktopNavLink
-                to="/user-manual"
-                active={isActive("/user-manual")}
-                icon={<UserCog className="w-4 h-4" />}
-                label="User Manual"
-              />
-              <DesktopNavLink
                 to="/dashboard"
                 active={isActive("/dashboard")}
                 icon={<LayoutDashboard className="w-4 h-4" />}
@@ -89,6 +82,12 @@ const AuthorizedNavbar: React.FC = () => {
                 active={isActive("/insights")}
                 icon={<BarChart3 className="w-4 h-4" />}
                 label="Insights"
+              />
+              <DesktopNavLink
+                to="/solutions"
+                active={isActive("/solutions")}
+                icon={<BarChart3 className="w-4 h-4" />}
+                label="Solutions"
               />
 
               <div className="w-px h-5 bg-white/10 mx-2" />
@@ -142,12 +141,6 @@ const AuthorizedNavbar: React.FC = () => {
           `}
         >
           <div className="px-4 sm:px-6 py-4 space-y-2">
-            <MobileMenuButton
-              onClick={() => handleNavigation("/user-manual")}
-              active={isActive("/user-manual")}
-              icon={<UserCog className="w-4 h-4" />}
-              label="User Manual"
-            />
             
             <MobileMenuButton
               onClick={() => handleNavigation("/dashboard")}
@@ -161,6 +154,13 @@ const AuthorizedNavbar: React.FC = () => {
               active={isActive("/insights")}
               icon={<BarChart3 className="w-4 h-4" />}
               label="Insights"
+            />
+
+            <MobileMenuButton
+              onClick={() => handleNavigation("/solutions")}
+              active={isActive("/solutions")}
+              icon={<BarChart3 className="w-4 h-4" />}
+              label="Solutions"
             />
 
             <button

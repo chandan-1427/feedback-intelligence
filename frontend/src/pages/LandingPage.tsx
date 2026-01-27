@@ -8,18 +8,26 @@ import {
   Sparkles,
 } from "lucide-react";
 
+import AuroraBackground from "../components/ui/AuroraBackground";
+import { DemoPieChart } from "../components/ui/DemoPieChart";
+
 const LandingPage: React.FC = () => {
   const navigate = useNavigate();
 
   return (
     <div className="bg-[#0D0E0E] font-work text-white selection:bg-[#5A0091]/30">
+      
       {/* ================= HERO ================= */}
       <section className="relative overflow-hidden pt-24 sm:pt-28 pb-16 sm:pb-20">
-        {/* subtle background */}
+        {/* Aurora only for hero */}
+        <AuroraBackground />
+
+        {/* subtle background blobs */}
         <div className="pointer-events-none absolute -top-32 left-1/2 h-72 w-72 -translate-x-1/2 rounded-full bg-[#5A0091]/10 blur-[90px]" />
         <div className="pointer-events-none absolute -bottom-40 right-[-80px] h-64 w-64 rounded-full bg-indigo-500/10 blur-[100px]" />
 
-        <div className="max-w-6xl mx-auto px-6 text-center">
+        {/* Hero content */}
+        <div className="relative z-10 max-w-6xl mx-auto px-6 text-center">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs text-white/70">
             <Sparkles className="w-4 h-4 text-[#A855F7]" />
             Collect → Theme → Solve
@@ -219,6 +227,15 @@ const LandingPage: React.FC = () => {
                     High
                   </p>
                 </div>
+              </div>
+
+              {/* Feedback distribution */}
+              <div className="mt-4">
+                <p className="text-[11px] font-semibold text-white/50 uppercase tracking-widest mb-2">
+                  Feedback distribution
+                </p>
+
+                <DemoPieChart />
               </div>
 
               <p className="mt-4 text-xs text-white/35">

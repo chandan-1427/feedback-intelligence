@@ -10,6 +10,7 @@ import SignIn from "./pages/SignInPage";
 import SignUp from "./pages/SignUpPage";
 import Dashboard from "./pages/Dashboard";
 import InsightsPage from "./pages/InsightsPage";
+import SolutionsPage from "./pages/SolutionsPage";
 import UserManual from "./layouts/UserManual";
 
 // ✅ Public Layout (Standard Navbar + Footer)
@@ -50,6 +51,7 @@ function App() {
           <Route path="/user-manual" element={<UserManual />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/insights" element={<InsightsPage />} />
+          <Route path="/solutions" element={<SolutionsPage />} />
         </Route>
       </Routes>
     </Router>
