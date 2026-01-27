@@ -129,14 +129,6 @@ const Footer: React.FC = () => {
                         Sign up
                       </Link>
                     </li>
-                    <li>
-                      <Link
-                        to="/user-manual"
-                        className="text-sm text-white/55 hover:text-white transition"
-                      >
-                        User Manual
-                      </Link>
-                    </li>
                   </ul>
                 </div>
 
