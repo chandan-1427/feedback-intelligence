@@ -212,7 +212,7 @@ feedbackThemeRoute.post("/theme/bulk", async (c) => {
       WHERE user_id = $1
         AND id = ANY($2::uuid[])
       `,
-      [userId, items.map((i) => i.id)]
+      [userId, items.map((i: { id: string }) => i.id)]
     );
 
     await client.query("COMMIT");

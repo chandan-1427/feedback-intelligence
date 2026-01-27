@@ -132,7 +132,11 @@ solutionsRoute.post("/themes/:theme/generate", async (c) => {
       [userId, theme, limit]
     );
 
-    const feedbackMessages = fbRes.rows.map((r) => r.message);
+    type FeedbackRow = {
+      message: string;
+    };
+
+    const feedbackMessages = fbRes.rows.map((r: FeedbackRow) => r.message);
 
     if (feedbackMessages.length === 0) {
       throw new Error("No feedback messages found");
