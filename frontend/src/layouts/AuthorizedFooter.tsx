@@ -138,6 +138,14 @@ const AuthorizedFooter: React.FC = () => {
                         Solutions
                       </Link>
                     </li>
+                    <li>
+                      <Link
+                        to="/user-manual"
+                        className="text-sm text-white/55 hover:text-white transition"
+                      >
+                        User Manual
+                      </Link>
+                    </li>
                   </ul>
                 </div>
 
@@ -146,7 +154,8 @@ const AuthorizedFooter: React.FC = () => {
                     Tech
                   </p>
                   <ul className="space-y-2">
-                    <li className="text-sm text-white/55">JWT cookies</li>
+                    <li className="text-sm text-white/55">React</li>
+                    <li className="text-sm text-white/55">Hono</li>
                     <li className="text-sm text-white/55">PostgreSQL</li>
                   </ul>
                 </div>
