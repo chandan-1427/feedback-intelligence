@@ -1,23 +1,24 @@
-# dev
-.yarn/
-!.yarn/releases
-.vscode/*
-!.vscode/launch.json
-!.vscode/*.code-snippets
-.idea/workspace.xml
-.idea/usage.statistics.xml
-.idea/shelf
-
-# deps
+# =====================
+# Dependencies
+# =====================
 node_modules/
 
-# env
-.env
-.env.production
-.schema.sql
-.schema_final.sql
+# =====================
+# Build output
+# =====================
+dist/
+build/
 
-# logs
+# =====================
+# Environment
+# =====================
+.env
+.env.*
+!.env.example
+
+# =====================
+# Logs
+# =====================
 logs/
 *.log
 npm-debug.log*
@@ -26,5 +27,50 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-# misc
+# =====================
+# Databases
+# =====================
+*.sqlite
+*.sqlite3
+prisma/dev.db
+
+# =====================
+# Coverage & temp
+# =====================
+coverage/
+.cache/
+.tmp/
+temp/
+
+# =====================
+# OS files
+# =====================
 .DS_Store
+
+# =====================
+# IDE / Editor
+# =====================
+.vscode/
+!.vscode/launch.json
+!.vscode/*.code-snippets
+
+.idea/
+.idea/workspace.xml
+.idea/usage.statistics.xml
+.idea/shelf
+
+# =====================
+# Yarn (Berry)
+# =====================
+.yarn/
+!.yarn/releases
+.yarn/cache/
+.yarn/unplugged/
+.yarn/build-state.yml
+.yarn/install-state.gz
+
+# =====================
+# Misc
+# =====================
+.schema.sql
+.schema_final.sql
