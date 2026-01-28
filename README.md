@@ -2,7 +2,7 @@
 
 A comprehensive full-stack application for collecting, analyzing, and managing customer feedback with AI-powered insights, theme extraction, and intelligent solution generation.
 
-**Live Demo:** Coming Soon  
+**Live Demo:** https://feedback-intelligence-five.vercel.app
 **Documentation:** See [Architecture Overview](#-architecture) below
 
 ---
