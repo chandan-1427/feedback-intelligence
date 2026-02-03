@@ -27,7 +27,7 @@ const SignUp = () => {
     );
   }, [username, email, password, isLoading, success]);
 
-  const handleSignUp = async (e) => {
+  const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canSubmit) return;
 

@@ -47,19 +47,22 @@ const VerifyEmail = () => {
   const navigate = useNavigate();
   const token = searchParams.get("token");
 
-  const [status, setStatus] = useState<Status>("verifying");
-  const [message, setMessage] = useState("Verifying your email...");
+  // ✅ FIX: Initialize state correctly based on token presence immediately.
+  // This prevents the "synchronous setState in useEffect" warning.
+  const [status, setStatus] = useState<Status>(token ? "verifying" : "error");
+  const [message, setMessage] = useState(
+    token ? "Verifying your email..." : "Invalid link: Missing token."
+  );
+  
   const hasFetched = useRef(false);
 
   useEffect(() => {
+    // ✅ If no token, state is already "error" from line 52. Just exit.
+    if (!token) return;
+
+    // Prevent double-fetch in React StrictMode
     if (hasFetched.current) return;
     hasFetched.current = true;
-
-    if (!token) {
-      setStatus("error");
-      setMessage("Invalid link: Missing token.");
-      return;
-    }
 
     const verify = async () => {
       const result = await verifyEmailApi(token);
