@@ -65,7 +65,7 @@ authRoute.post("/sign-up", async (c) => {
     // 📧 Send actual email
     // usage of try-catch ensures email failure doesn't crash the request
     try {
-      await sendVerificationEmail(user.email, rawToken);
+      sendVerificationEmail(user.email, rawToken);
     } catch (error) {
       console.error("Failed to send email:", error);
       // Optional: You might want to delete the user here if email fails, 

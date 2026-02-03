@@ -10,15 +10,10 @@ interface Env {
   NODE_ENV: string;
   GROQ_API_KEY: string;
   GROQ_MODEL: string;
-  SMTP_HOST: string;
-  SMTP_PORT: number;
-  SMTP_USER: string;
-  SMTP_PASS: string;
-  SMTP_FROM_EMAIL: string;
+  RESEND_API_KEY: string;
 }
 
 const port = Number(process.env.PORT);
-const smtp_port = Number(process.env.SMTP_PORT);
 
 export const env: Env = {
   PORT: Number.isFinite(port) ? port : 3000,
@@ -30,11 +25,7 @@ export const env: Env = {
   NODE_ENV: process.env.NODE_ENV || "",
   GROQ_API_KEY: process.env.GROQ_API_KEY || "",
   GROQ_MODEL: process.env.GROQ_MODEL || "llama-3.1-8b-instant",
-  SMTP_HOST: process.env.SMTP_HOST || "",
-  SMTP_PORT: Number.isFinite(smtp_port) ? smtp_port : 587,
-  SMTP_USER: process.env.SMTP_USER || "",
-  SMTP_PASS: process.env.SMTP_PASS || "",
-  SMTP_FROM_EMAIL: process.env.SMTP_FROM_EMAIL || "",
+  RESEND_API_KEY: process.env.RESEND_API_KEY || "",
 };
 
 if(!env.DATABASE_URL) {
