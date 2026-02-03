@@ -3,8 +3,10 @@ import bcrypt from "bcrypt";
 import crypto from "crypto";
 import { getCookie, setCookie, deleteCookie } from "hono/cookie";
 import { pool } from "../db/client.js";
-import { signAccessToken, signRefreshToken } from "../utils/jwt.js";
-import { sendVerificationEmail, sendPasswordResetEmail } from "../utils/mailer.js"; // 👈 Import added
+import {
+  signAccessToken,
+  signRefreshToken,
+} from "../utils/jwt.js";
 import { env } from "../config/env.js";
 
 export const authRoute = new Hono();
@@ -62,15 +64,16 @@ authRoute.post("/sign-up", async (c) => {
       [user.id, hashToken(rawToken)]
     );
 
-    sendVerificationEmail(user.email, rawToken)
-      .catch((err) => console.error("Email failed:", err));
+    // TODO: Send email with verification link
+    console.log(
+      `Verify URL: ${env.FRONTEND_URL}/verify-email?token=${rawToken}`
+    );
 
     return c.json({
-      message: "Account created. Please check your email to verify.",
+      message: "Account created. Please verify your email.",
     });
-  } catch (err) {
-    // Check if error is unique constraint violation
-    return c.json({ message: "User already exists!" }, 409);
+  } catch {
+    return c.json({ message: "Unable to create account" }, 409);
   }
 });
 
@@ -158,6 +161,7 @@ authRoute.post("/sign-in", async (c) => {
 });
 
 authRoute.post("/refresh", async (c) => {
+  // Use getCookie(c, cookieName) instead of c.req.cookie()
   const refreshToken = getCookie(c, REFRESH_COOKIE);
 
   if (!refreshToken) return c.json({ message: "Unauthorized" }, 401);
@@ -177,6 +181,7 @@ authRoute.post("/refresh", async (c) => {
     [db.rows[0].user_id]
   );
 
+  // Note: Added await here since your signAccessToken is async
   const newAccess = await signAccessToken({
     userId: user.rows[0].id,
     email: user.rows[0].email,
@@ -184,6 +189,7 @@ authRoute.post("/refresh", async (c) => {
     tokenVersion: user.rows[0].token_version,
   });
 
+  // setCookie is already correct if imported from hono/cookie
   setCookie(c, ACCESS_COOKIE, newAccess, {
     httpOnly: true,
     secure: isProd,
@@ -195,6 +201,7 @@ authRoute.post("/refresh", async (c) => {
 });
 
 authRoute.post("/logout", async (c) => {
+  // Fix: Use getCookie helper instead of c.req.cookie
   const refreshToken = getCookie(c, REFRESH_COOKIE);
 
   if (refreshToken) {
@@ -204,6 +211,7 @@ authRoute.post("/logout", async (c) => {
     );
   }
 
+  // Clear both cookies
   deleteCookie(c, ACCESS_COOKIE);
   deleteCookie(c, REFRESH_COOKIE);
 
@@ -214,7 +222,7 @@ authRoute.post("/forgot-password", async (c) => {
   const { email } = await c.req.json();
 
   const user = await pool.query(
-    `SELECT id, email FROM users WHERE email=$1`,
+    `SELECT id FROM users WHERE email=$1`,
     [email.toLowerCase()]
   );
 
@@ -229,78 +237,7 @@ authRoute.post("/forgot-password", async (c) => {
     [user.rows[0].id, hashToken(rawToken)]
   );
 
-  // 📧 Send actual email
-  try {
-    await sendPasswordResetEmail(user.rows[0].email, rawToken);
-  } catch (error) {
-    console.error("Failed to send reset email:", error);
-  }
+  // Send email with rawToken link here
 
   return c.json({ message: "If account exists, email sent" });
-});
-
-authRoute.post("/verify-email", async (c) => {
-  const { token } = await c.req.json();
-
-  if (!token)
-    return c.json({ message: "Invalid token" }, 400);
-
-  const hashed = hashToken(token);
-
-  const record = await pool.query(
-    `SELECT * FROM email_verifications
-     WHERE token_hash=$1
-     AND used=false
-     AND expires_at > NOW()`,
-    [hashed]
-  );
-
-  if (!record.rows.length)
-    return c.json({ message: "Invalid or expired token" }, 400);
-
-  const verification = record.rows[0];
-
-  await pool.query(
-    `UPDATE users SET is_verified=true WHERE id=$1`,
-    [verification.user_id]
-  );
-
-  await pool.query(
-    `UPDATE email_verifications SET used=true WHERE id=$1`,
-    [verification.id]
-  );
-
-  return c.json({ message: "Email verified successfully." });
-});
-
-authRoute.post("/resend-verification", async (c) => {
-  const { email } = await c.req.json();
-
-  const user = await pool.query(
-    `SELECT id,is_verified,email FROM users WHERE email=$1`,
-    [email.toLowerCase()]
-  );
-
-  if (!user.rows.length)
-    return c.json({ message: "If account exists, email sent." });
-
-  if (user.rows[0].is_verified)
-    return c.json({ message: "Email already verified." });
-
-  const rawToken = crypto.randomBytes(32).toString("hex");
-
-  await pool.query(
-    `INSERT INTO email_verifications(user_id,token_hash,expires_at)
-     VALUES($1,$2,NOW()+INTERVAL '24 hours')`,
-    [user.rows[0].id, hashToken(rawToken)]
-  );
-
-  // 📧 Send actual email
-  try {
-    await sendVerificationEmail(user.rows[0].email, rawToken);
-  } catch (error) {
-    console.error("Failed to send verification email:", error);
-  }
-
-  return c.json({ message: "If account exists, email sent." });
 });
