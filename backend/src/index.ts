@@ -59,7 +59,7 @@ app.use("/api/*", async (c, next) => {
   if (!token) {
     return c.json({ message: "Unauthorized" }, 401);
   }
-
+;
   try {
     // FIX 1: Add "HS256"
     // Cast payload to 'any' or your specific type if TS complains about strict shape
