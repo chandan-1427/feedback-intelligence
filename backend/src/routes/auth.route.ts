@@ -55,22 +55,22 @@ authRoute.post("/sign-up", async (c) => {
 
     const user = result.rows[0];
 
-    // 🔐 Create verification token
-    const rawToken = crypto.randomBytes(32).toString("hex");
+    // // 🔐 Create verification token
+    // const rawToken = crypto.randomBytes(32).toString("hex");
 
-    await pool.query(
-      `INSERT INTO email_verifications(user_id,token_hash,expires_at)
-       VALUES($1,$2,NOW()+INTERVAL '24 hours')`,
-      [user.id, hashToken(rawToken)]
-    );
+    // await pool.query(
+    //   `INSERT INTO email_verifications(user_id,token_hash,expires_at)
+    //    VALUES($1,$2,NOW()+INTERVAL '24 hours')`,
+    //   [user.id, hashToken(rawToken)]
+    // );
 
-    // TODO: Send email with verification link
-    console.log(
-      `Verify URL: ${env.FRONTEND_URL}/verify-email?token=${rawToken}`
-    );
+    // // TODO: Send email with verification link
+    // console.log(
+    //   `Verify URL: ${env.FRONTEND_URL}/verify-email?token=${rawToken}`
+    // );
 
     return c.json({
-      message: "Account created. Please verify your email.",
+      message: "Account created.",
     });
   } catch {
     return c.json({ message: "Unable to create account" }, 409);
@@ -89,13 +89,6 @@ authRoute.post("/sign-in", async (c) => {
     return c.json({ message: "Invalid credentials" }, 401);
 
   const user = result.rows[0];
-
-  if (!user.is_verified) {
-    return c.json(
-      { message: "Please verify your email before signing in." },
-      403
-    );
-  }
 
   if (user.lock_until && new Date(user.lock_until) > new Date())
     return c.json({ message: "Account locked. Try later." }, 403);
