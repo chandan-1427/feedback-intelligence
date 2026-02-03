@@ -1,174 +1,313 @@
 import { Hono } from "hono";
 import bcrypt from "bcrypt";
-import { setCookie, deleteCookie } from "hono/cookie";
+import crypto from "crypto";
+import { getCookie, setCookie, deleteCookie } from "hono/cookie";
 import { pool } from "../db/client.js";
-import { signToken } from "../utils/jwt.js";
+import { signAccessToken, signRefreshToken } from "../utils/jwt.js";
+import { sendVerificationEmail, sendPasswordResetEmail } from "../utils/mailer.js"; // 👈 Import added
 import { env } from "../config/env.js";
 
 export const authRoute = new Hono();
 
 const isProd = env.NODE_ENV === "production";
-const COOKIE_MAX_AGE = 60 * 60 * 24; // 1 day
 
-/* ----------------------------- helpers ----------------------------- */
+const ACCESS_COOKIE = "access_token";
+const REFRESH_COOKIE = "refresh_token";
 
-const isValidEmail = (email: string) =>
-  /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+const ACCESS_MAX_AGE = 60 * 15; // 15 min
+const REFRESH_MAX_AGE = 60 * 60 * 24 * 7; // 7 days
+
+/* ---------------- Password Policy ---------------- */
 
 const isStrongPassword = (password: string) =>
-  password.length >= 8;
+  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{10,}$/.test(password);
 
-const authError = () => ({
-  message: "Invalid email or password."
-});
+/* ---------------- Helper ---------------- */
 
-/* ----------------------------- SIGN UP ----------------------------- */
+const hashToken = (token: string) =>
+  crypto.createHash("sha256").update(token).digest("hex");
+
+/* ---------------- SIGN UP ---------------- */
 
 authRoute.post("/sign-up", async (c) => {
-  try {
-    const { username, email, password } = await c.req.json();
+  const { username, email, password } = await c.req.json();
 
-    const safeUsername = username?.trim();
-    const safeEmail = email?.trim().toLowerCase();
+  if (!username || !email || !password)
+    return c.json({ message: "All fields required" }, 400);
 
-    if (!safeUsername || !safeEmail || !password) {
-      return c.json(
-        { message: "All fields are required." },
-        400
-      );
-    }
-
-    if (safeUsername.length < 3 || safeUsername.length > 30) {
-      return c.json(
-        { message: "Username must be between 3 and 30 characters." },
-        400
-      );
-    }
-
-    if (!isValidEmail(safeEmail)) {
-      return c.json(
-        { message: "Invalid email format." },
-        400
-      );
-    }
-
-    if (!isStrongPassword(password)) {
-      return c.json(
-        { message: "Password must be at least 8 characters long." },
-        400
-      );
-    }
-
-    const existing = await pool.query(
-      "SELECT id FROM users WHERE email = $1",
-      [safeEmail]
-    );
-
-    if (existing.rows.length > 0) {
-      // prevent email enumeration
-      return c.json(
-        { message: "Unable to create account." },
-        409
-      );
-    }
-
-    const passwordHash = await bcrypt.hash(password, 12);
-
-    const result = await pool.query(
-      `
-        INSERT INTO users (username, email, password_hash)
-        VALUES ($1, $2, $3)
-        RETURNING id, username, email, created_at
-      `,
-      [safeUsername, safeEmail, passwordHash]
-    );
-
+  if (!isStrongPassword(password))
     return c.json(
-      {
-        message: "Account created successfully.",
-        user: result.rows[0],
-      },
-      201
+      { message: "Password must be 10+ chars, include upper, lower, number." },
+      400
     );
-  } catch (err) {
-    console.error("SIGN-UP ERROR:", err);
-    return c.json(
-      { message: "Internal server error." },
-      500
-    );
-  }
-});
 
-/* ----------------------------- SIGN IN ----------------------------- */
+  const passwordHash = await bcrypt.hash(password, 12);
 
-authRoute.post("/sign-in", async (c) => {
   try {
-    const { email, password } = await c.req.json();
-
-    const safeEmail = email?.trim().toLowerCase();
-
-    if (!safeEmail || !password) {
-      return c.json(authError(), 400);
-    }
-
     const result = await pool.query(
-      `SELECT id, username, email, password_hash
-       FROM users WHERE email = $1`,
-      [safeEmail]
+      `INSERT INTO users (username, email, password_hash)
+       VALUES ($1,$2,$3)
+       RETURNING id,email`,
+      [username.trim(), email.toLowerCase(), passwordHash]
     );
-
-    if (result.rows.length === 0) {
-      return c.json(authError(), 401);
-    }
 
     const user = result.rows[0];
 
-    const ok = await bcrypt.compare(password, user.password_hash);
-    if (!ok) {
-      return c.json(authError(), 401);
+    // 🔐 Create verification token
+    const rawToken = crypto.randomBytes(32).toString("hex");
+
+    await pool.query(
+      `INSERT INTO email_verifications(user_id,token_hash,expires_at)
+       VALUES($1,$2,NOW()+INTERVAL '24 hours')`,
+      [user.id, hashToken(rawToken)]
+    );
+
+    // 📧 Send actual email
+    // usage of try-catch ensures email failure doesn't crash the request
+    try {
+      await sendVerificationEmail(user.email, rawToken);
+    } catch (error) {
+      console.error("Failed to send email:", error);
+      // Optional: You might want to delete the user here if email fails, 
+      // or just tell them to "Resend Verification" later.
     }
 
-    const token = await signToken({
-      userId: user.id,
-      email: user.email,
-      username: user.username,
-    });
-
-    setCookie(c, "token", token, {
-      httpOnly: true,
-      secure: isProd,
-      sameSite: isProd ? "none" : "lax",
-      path: "/",
-      maxAge: COOKIE_MAX_AGE,
-    });
-
     return c.json({
-      message: "Signed in successfully.",
-      user: {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-      },
+      message: "Account created. Please check your email to verify.",
     });
   } catch (err) {
-    console.error("SIGN-IN ERROR:", err);
-    return c.json(
-      { message: "Internal server error." },
-      500
-    );
+    // Check if error is unique constraint violation
+    return c.json({ message: "User already exists!" }, 409);
   }
 });
 
-/* ----------------------------- LOGOUT ----------------------------- */
+authRoute.post("/sign-in", async (c) => {
+  const { email, password } = await c.req.json();
+
+  const result = await pool.query(
+    `SELECT * FROM users WHERE email=$1`,
+    [email.toLowerCase()]
+  );
+
+  if (!result.rows.length)
+    return c.json({ message: "Invalid credentials" }, 401);
+
+  const user = result.rows[0];
+
+  if (!user.is_verified) {
+    return c.json(
+      { message: "Please verify your email before signing in." },
+      403
+    );
+  }
+
+  if (user.lock_until && new Date(user.lock_until) > new Date())
+    return c.json({ message: "Account locked. Try later." }, 403);
+
+  const valid = await bcrypt.compare(password, user.password_hash);
+
+  if (!valid) {
+    await pool.query(
+      `UPDATE users SET failed_attempts=failed_attempts+1 WHERE id=$1`,
+      [user.id]
+    );
+
+    if (user.failed_attempts + 1 >= 5) {
+      await pool.query(
+        `UPDATE users SET lock_until=NOW()+INTERVAL '15 minutes' WHERE id=$1`,
+        [user.id]
+      );
+    }
+
+    return c.json({ message: "Invalid credentials" }, 401);
+  }
+
+  await pool.query(
+    `UPDATE users SET failed_attempts=0, lock_until=NULL WHERE id=$1`,
+    [user.id]
+  );
+
+  const accessToken = signAccessToken({
+    userId: user.id,
+    email: user.email,
+    username: user.username,
+    tokenVersion: user.token_version,
+  });
+
+  const refreshToken = signRefreshToken({
+    userId: user.id,
+    tokenVersion: user.token_version,
+  });
+
+  await pool.query(
+    `INSERT INTO refresh_tokens(user_id,token_hash,expires_at)
+     VALUES($1,$2,NOW()+INTERVAL '7 days')`,
+    [user.id, hashToken(await refreshToken)]
+  );
+
+  setCookie(c, ACCESS_COOKIE, await accessToken, {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: "lax",
+    maxAge: ACCESS_MAX_AGE,
+    path: "/",
+  });
+
+  setCookie(c, REFRESH_COOKIE, await refreshToken, {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: "lax",
+    maxAge: REFRESH_MAX_AGE,
+    path: "/",
+  });
+
+  return c.json({ message: "Signed in" });
+});
+
+authRoute.post("/refresh", async (c) => {
+  const refreshToken = getCookie(c, REFRESH_COOKIE);
+
+  if (!refreshToken) return c.json({ message: "Unauthorized" }, 401);
+
+  const hashed = hashToken(refreshToken);
+
+  const db = await pool.query(
+    `SELECT * FROM refresh_tokens WHERE token_hash=$1 AND revoked=false`,
+    [hashed]
+  );
+
+  if (!db.rows.length)
+    return c.json({ message: "Invalid refresh token" }, 401);
+
+  const user = await pool.query(
+    `SELECT * FROM users WHERE id=$1`,
+    [db.rows[0].user_id]
+  );
+
+  const newAccess = await signAccessToken({
+    userId: user.rows[0].id,
+    email: user.rows[0].email,
+    username: user.rows[0].username,
+    tokenVersion: user.rows[0].token_version,
+  });
+
+  setCookie(c, ACCESS_COOKIE, newAccess, {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: "lax",
+    maxAge: ACCESS_MAX_AGE,
+  });
+
+  return c.json({ message: "Refreshed" });
+});
 
 authRoute.post("/logout", async (c) => {
-  deleteCookie(c, "token", {
-    path: "/",
-    secure: isProd,
-    sameSite: isProd ? "none" : "lax",
-  });
+  const refreshToken = getCookie(c, REFRESH_COOKIE);
 
-  return c.json({
-    message: "Logged out successfully.",
-  });
+  if (refreshToken) {
+    await pool.query(
+      `UPDATE refresh_tokens SET revoked=true WHERE token_hash=$1`,
+      [hashToken(refreshToken)]
+    );
+  }
+
+  deleteCookie(c, ACCESS_COOKIE);
+  deleteCookie(c, REFRESH_COOKIE);
+
+  return c.json({ message: "Logged out" });
+});
+
+authRoute.post("/forgot-password", async (c) => {
+  const { email } = await c.req.json();
+
+  const user = await pool.query(
+    `SELECT id, email FROM users WHERE email=$1`,
+    [email.toLowerCase()]
+  );
+
+  if (!user.rows.length)
+    return c.json({ message: "If account exists, email sent" });
+
+  const rawToken = crypto.randomBytes(32).toString("hex");
+
+  await pool.query(
+    `INSERT INTO password_resets(user_id,token_hash,expires_at)
+     VALUES($1,$2,NOW()+INTERVAL '1 hour')`,
+    [user.rows[0].id, hashToken(rawToken)]
+  );
+
+  // 📧 Send actual email
+  try {
+    await sendPasswordResetEmail(user.rows[0].email, rawToken);
+  } catch (error) {
+    console.error("Failed to send reset email:", error);
+  }
+
+  return c.json({ message: "If account exists, email sent" });
+});
+
+authRoute.post("/verify-email", async (c) => {
+  const { token } = await c.req.json();
+
+  if (!token)
+    return c.json({ message: "Invalid token" }, 400);
+
+  const hashed = hashToken(token);
+
+  const record = await pool.query(
+    `SELECT * FROM email_verifications
+     WHERE token_hash=$1
+     AND used=false
+     AND expires_at > NOW()`,
+    [hashed]
+  );
+
+  if (!record.rows.length)
+    return c.json({ message: "Invalid or expired token" }, 400);
+
+  const verification = record.rows[0];
+
+  await pool.query(
+    `UPDATE users SET is_verified=true WHERE id=$1`,
+    [verification.user_id]
+  );
+
+  await pool.query(
+    `UPDATE email_verifications SET used=true WHERE id=$1`,
+    [verification.id]
+  );
+
+  return c.json({ message: "Email verified successfully." });
+});
+
+authRoute.post("/resend-verification", async (c) => {
+  const { email } = await c.req.json();
+
+  const user = await pool.query(
+    `SELECT id,is_verified,email FROM users WHERE email=$1`,
+    [email.toLowerCase()]
+  );
+
+  if (!user.rows.length)
+    return c.json({ message: "If account exists, email sent." });
+
+  if (user.rows[0].is_verified)
+    return c.json({ message: "Email already verified." });
+
+  const rawToken = crypto.randomBytes(32).toString("hex");
+
+  await pool.query(
+    `INSERT INTO email_verifications(user_id,token_hash,expires_at)
+     VALUES($1,$2,NOW()+INTERVAL '24 hours')`,
+    [user.rows[0].id, hashToken(rawToken)]
+  );
+
+  // 📧 Send actual email
+  try {
+    await sendVerificationEmail(user.rows[0].email, rawToken);
+  } catch (error) {
+    console.error("Failed to send verification email:", error);
+  }
+
+  return c.json({ message: "If account exists, email sent." });
 });

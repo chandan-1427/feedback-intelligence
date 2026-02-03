@@ -12,6 +12,8 @@ import Dashboard from "./pages/Dashboard";
 import InsightsPage from "./pages/InsightsPage";
 import SolutionsPage from "./pages/SolutionsPage";
 import UserManual from "./layouts/UserManual";
+import VerifyEmail from "./pages/VerifyEmail";
+import VerifyInstruction from "./pages/VerifyInstruction";
 
 // ✅ Public Layout (Standard Navbar + Footer)
 const PublicLayout = () => (
@@ -44,6 +46,8 @@ function App() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/signin" element={<SignIn />} />
           <Route path="/signup" element={<SignUp />} />
+          <Route path="/verify-instruction" element={<VerifyInstruction />} />
+          <Route path="/verify-email" element={<VerifyEmail />} />
         </Route>
 
         {/* --- Private/Authorized Routes --- */}

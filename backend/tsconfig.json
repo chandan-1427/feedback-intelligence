@@ -14,7 +14,8 @@
     "outDir": "./dist",
     "paths": {
       "@/*": ["./src/*"]
-    }
+    },
+    "isolatedModules": true
   },
-  "exclude": ["node_modules"],
+  "exclude": ["node_modules", "**/__tests__/*"],
 }

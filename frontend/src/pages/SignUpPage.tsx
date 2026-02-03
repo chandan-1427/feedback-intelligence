@@ -9,7 +9,7 @@ import TextInput from "../components/ui/TextInput";
 import PasswordInput from "../components/ui/PasswordInput";
 import SubmitButton from "../components/ui/SubmitButton";
 
-const SignUp: React.FC = () => {
+const SignUp = () => {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -27,13 +27,16 @@ const SignUp: React.FC = () => {
     );
   }, [username, email, password, isLoading, success]);
 
-  const handleSignUp = async (e: React.FormEvent) => {
+  const handleSignUp = async (e) => {
     e.preventDefault();
     if (!canSubmit) return;
 
     const ok = await signUp({ username, email, password });
+    
     if (ok) {
-      setTimeout(() => navigate("/signin"), 1200);
+      // ✅ UPDATED: Redirect to a "Check your email" instruction page
+      // instead of straight to login.
+      setTimeout(() => navigate("/verify-instruction"), 1200);
     }
   };
 
@@ -67,7 +70,7 @@ const SignUp: React.FC = () => {
             {success && (
               <FormAlert
                 type="success"
-                message="Account created! Redirecting to sign in..."
+                message="Account created! Check your email to verify."
               />
             )}
 
@@ -146,9 +149,9 @@ const SignUp: React.FC = () => {
           </form>
         </div>
 
-        {/* Small bottom hint (optional) */}
+        {/* Small bottom hint */}
         <p className="mt-5 text-center text-xs text-white/30">
-          You'll be redirected to sign in after creating your account.
+          You'll need to verify your email before signing in.
         </p>
       </div>
     </div>

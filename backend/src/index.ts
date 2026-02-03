@@ -3,8 +3,9 @@ import { Hono } from "hono";
 import { logger } from "hono/logger";
 import { cors } from "hono/cors";
 import { csrf } from "hono/csrf";
-import { jwt } from "hono/jwt";
+import { verify } from "hono/jwt";
 import type { JwtVariables } from "hono/jwt";
+import { getCookie } from "hono/cookie";
 import { env } from "./config/env.js";
 import { connectDB } from "./db/connect.js";
 import { pool } from "./db/client.js";
@@ -52,15 +53,26 @@ if (env.NODE_ENV === "production") {
 }
 
 // 5. PROTECTED ROUTE MIDDLEWARE
-// This will intercept any request starting with /api/
-app.use(
-  "/api/*",
-  jwt({
-    secret: env.JWT_SECRET,
-    cookie: "token", // Look for the JWT in the 'token' cookie
-    alg: "HS256",    // Explicitly set algorithm to satisfy TS
-  })
-);
+app.use("/api/*", async (c, next) => {
+  const token = getCookie(c, "access_token");
+
+  if (!token) {
+    return c.json({ message: "Unauthorized" }, 401);
+  }
+
+  try {
+    // FIX 1: Add "HS256"
+    // Cast payload to 'any' or your specific type if TS complains about strict shape
+    const payload = await verify(token, env.JWT_SECRET, "HS256") as unknown as Variables['jwtPayload'];
+    
+    // FIX 2: Set "user" to match the type definition above
+    c.set("jwtPayload", payload);
+    
+    await next();
+  } catch (err) {
+    return c.json({ message: "Invalid or expired token" }, 401);
+  }
+});
 
 await connectDB();
 
@@ -106,12 +118,23 @@ const shutdown = async () => {
   if (isShuttingDown) return;
   isShuttingDown = true;
 
-  console.log("Shutting down server...");
-  await pool.end();
-  server.close(() => {
-    console.log("Server closed.");
+  console.log("Graceful shutdown initiated...");
+
+  // Set a timeout to force exit if closing takes too long
+  const forceExit = setTimeout(() => {
+    console.error("Could not close connections in time, forcefully shutting down");
+    process.exit(1);
+  }, 10000);
+
+  try {
+    await pool.end(); // Close DB first
+    server.close();   // Stop accepting new requests
+    clearTimeout(forceExit);
     process.exit(0);
-  });
+  } catch (err) {
+    console.error("Error during shutdown:", err);
+    process.exit(1);
+  }
 };
 
 process.on("SIGINT", shutdown);
